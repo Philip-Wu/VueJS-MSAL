@@ -13,13 +13,13 @@ import * as msal from '@azure/msal-browser'
 
 const config = {
     auth: {
-        tenantId: 'e37d725c-ab5c-4624-9ae5-f0533e486437',
+        tenantId: 'your_tenant_id',
         redirectUri: process.env.AZURE_AUTH_REDIRECT_URI,
-        authority: 'https://login.microsoftonline.com/e37d725c-ab5c-4624-9ae5-f0533e486437',
+        authority: 'https://login.microsoftonline.com/<your_client_id>',
         // authority: 'https://login.microsoftonline.com/common'
 
         //   clientId: 'f8054151-9b79-47ea-a6eb-e3cc98c39606',    
-        clientId: 'da47894d-ea78-4935-a83a-4a5bc4efb0fc',
+        clientId: 'your_client_id',
     },
     cache: {
       cacheLocation: 'localStorage'
