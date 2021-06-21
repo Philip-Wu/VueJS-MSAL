@@ -13,13 +13,13 @@ import * as msal from '@azure/msal-browser'
 
 const config = {
     auth: {
-        tenantId: 'your_tenant_id',
-        redirectUri: process.env.AZURE_AUTH_REDIRECT_URI,
-        authority: 'https://login.microsoftonline.com/<your_client_id>',
+        tenantId: 'e37d725c-ab5c-4624-9ae5-f0533e486437',
+        redirectUri: process.env.VUE_APP_AZURE_AUTH_REDIRECT_URI,
+        authority: 'https://login.microsoftonline.com/e37d725c-ab5c-4624-9ae5-f0533e486437',
         // authority: 'https://login.microsoftonline.com/common'
 
         //   clientId: 'f8054151-9b79-47ea-a6eb-e3cc98c39606',    
-        clientId: 'your_client_id',
+        clientId: 'da47894d-ea78-4935-a83a-4a5bc4efb0fc',
     },
     cache: {
       cacheLocation: 'localStorage'
@@ -187,5 +187,32 @@ export default {
   //
   isConfigured() {
     return msalApp != null
+  },
+
+  /**
+   * Check if the cached ID token is still valid. If not, then clear the old token. 
+   * User will be asked to reauthenticate.
+   * @returns 
+   */
+  checkIdToken() {
+    console.log('check Id token expiration')
+    let user = this.user();
+    if (user) {
+        const expirationDateSecs = user.idTokenClaims.exp
+        const expDate = new Date(expirationDateSecs * 1000)
+        console.log('expDateSecs: '+expDate);
+
+        if ((new Date()).getTime() >= expirationDateSecs * 1000) {
+            console.log('IdToken expired. Clearing internal cache')
+            this.clearLocal()
+            return false            
+        } else {
+            console.log('ID token is still valid')
+            return true
+        }    
+    } else {
+        return false
+    }
   }
+
 }
