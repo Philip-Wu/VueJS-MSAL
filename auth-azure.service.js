@@ -10,15 +10,14 @@
 // ----------------------------------------------------------------------------
 
 import * as msal from '@azure/msal-browser'
+import store from '../store/index'
 
 const config = {
     auth: {
         tenantId: 'e37d725c-ab5c-4624-9ae5-f0533e486437',
         redirectUri: process.env.VUE_APP_AZURE_AUTH_REDIRECT_URI,
         authority: 'https://login.microsoftonline.com/e37d725c-ab5c-4624-9ae5-f0533e486437',
-        // authority: 'https://login.microsoftonline.com/common'
-
-        //   clientId: 'f8054151-9b79-47ea-a6eb-e3cc98c39606',    
+        // authority: 'https://login.microsoftonline.com/common'  
         clientId: 'da47894d-ea78-4935-a83a-4a5bc4efb0fc',
     },
     cache: {
@@ -39,8 +38,9 @@ const config = {
 let msalApp
 
 export default {
-
+  waitingOnAccessToken: false,
   accessToken: null,
+  accessTokenCallbacks: [], // functions to call back when accessToken is set
 
   //
   // Configure with clientId or empty string/null to set in "demo" mode
@@ -110,7 +110,7 @@ export default {
     const currentAccounts = msalApp.getAllAccounts()
     
     if (!currentAccounts || currentAccounts.length === 0) {
-        console.log('no currentAccounts');
+      //  console.log('no currentAccounts');
       // No user signed in
       return null
     } else if (currentAccounts.length > 1) {
@@ -118,6 +118,10 @@ export default {
     } else {
       return currentAccounts[0]
     }
+  },
+
+  isLoggedIn() {
+      return this.user() != null
   },
 
   /**
@@ -137,6 +141,7 @@ export default {
   // Call through to acquireTokenSilent or acquireTokenPopup
   //
   async acquireToken(/*scopes = ['user.read']*/) {
+    this.waitingOnAccessToken = true
     // Override any scope
     let scopes = this.defaultScope()
     if (!msalApp) {
@@ -158,11 +163,24 @@ export default {
       // 2. Silent process might have failed so try via popup
       tokenResp = await msalApp.acquireTokenPopup(accessTokenRequest)
       console.log('### MSAL acquireTokenPopup was successful')
+    } finally {
+        this.waitingOnAccessToken = false
     }
 
     // Just in case check, probably never triggers
     if (!tokenResp.accessToken) {
       throw new Error("### accessToken not found in response, that's bad")
+    }
+
+    this.accessToken = tokenResp.accessToken
+
+    // Execute waiting call backs
+    if (this.accessTokenCallbacks.length > 0) {
+        this.accessTokenCallbacks.forEach( callback => {
+            console.log('executing callback: '+callback)
+            callback()
+        })
+        this.accessTokenCallbacks = []  // reset
     }
 
     return tokenResp.accessToken
@@ -190,6 +208,32 @@ export default {
   },
 
   /**
+   * Initializes app authentication state. Attempt to acquire an access token if already logged in.
+   */
+  init() {
+
+    this.configure();
+    console.log("authAzure user: ")
+    console.log(this.user());
+    
+    if (this.user()) {
+      console.log('already signed in.');
+      // Check if the current ID token is still valid based on expiration date
+      if (this.checkIdToken()) {
+        // set accessToken
+        console.log('Acquiring accessing token ...')
+        this.acquireToken().then (accessToken => {
+            this.accessToken = accessToken      
+            console.log('accessToken: '+ this.accessToken);      
+            store.dispatch('auth/loginSuccess');                          
+        });
+      }
+    } else {
+      console.log('not signed in');
+    }      
+  },
+
+  /**
    * Check if the cached ID token is still valid. If not, then clear the old token. 
    * User will be asked to reauthenticate.
    * @returns 
@@ -213,6 +257,33 @@ export default {
     } else {
         return false
     }
-  }
+  },
+
+  /**
+   * Sign in and store the accessToken
+   */
+  appSignIn() {
+
+    if (!msalApp) {
+        return null
+    }
+
+    console.log('appSignIn')
+    this.login().then( () => {
+        if ( this.user()) {
+            console.log('user signed in');
+            // Automaticaly assign accessToken
+            this.acquireToken().then (accessToken => {
+                this.accessToken = accessToken      
+                console.log('accessToken: '+ this.accessToken);      
+                store.dispatch('auth/loginSuccess');             
+              });                    
+        } else {
+            console.error('Failed to sign in');
+            store.dispatch('auth/loginFailure');                        
+        }     
+    });
+
+}  
 
 }
